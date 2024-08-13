@@ -1,0 +1,35 @@
+httpPort: 13000 # HTTP 服务的监听端口
+MetricPort: 5857 # 应用的监控指标端口
+appName: connector    # 应用名称
+log:
+  level: DEBUG   # 日志级别
+db:
+  mongo:
+    url: mongodb://127.0.0.1:27017 # MongoDB 数据库的连接地址
+    userName: root                # MongoDB 数据库的用户名
+    password: root123456          # MongoDB 数据库的密码
+    minPoolSize: 10               # MongoDB 连接池的最小连接数
+    maxPoolSize: 100              # MongoDB 连接池的最大连接数
+    db: msqp                      # MongoDB 数据库的名称
+  redis:
+    addr: 127.0.0.1:6379          # Redis 数据库的连接地址
+    poolSize: 10                  # Redis 连接池的大小
+    minIdleConns: 1               # Redis 连接池的最小空闲连接数
+    password:                     # Redis 数据库的密码（如果有的话）
+jwt:
+  secret: 123456 # JWT 的密钥
+  exp: 7         # JWT 的过期时间（单位：天）
+domain:
+  user:
+    name: user/v1      # user 服务的名称和版本
+    loadBalance: true  # 是否启用负载均衡
+etcd:
+  addrs:
+    - 127.0.0.1:2379  # etcd 服务器的地址，客户端将通过这个地址连接到 etcd
+  rwTimeout: 3        # etcd 读写操作的超时时间（单位：秒）
+  dialTimeout: 3      # etcd 连接操作的超时时间（单位：秒）
+services:
+  connector:
+    id: connector-1      # 服务的 ID
+    clientHost: 127.0.0.1 # 服务的客户端主机地址
+    clientPort: 12000     # 服务的客户端端口

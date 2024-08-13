@@ -1,4 +1,4 @@
-go 1.22
+go 1.22.5
 
 use (
 	common
@@ -6,7 +6,8 @@ use (
 	core
 	framework
 	game
+	gate
 	hall
 	user
-	gate
+	.
 )

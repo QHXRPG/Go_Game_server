@@ -6,9 +6,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"gate/app"
 	"log"
 	"os"
-	"user/app"
 )
 
 // go run main.go -config=custom_config.yml

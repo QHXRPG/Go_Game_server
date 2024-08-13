@@ -100,7 +100,7 @@ func InitConfig(confFile string) {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 
-	// 将读取到的配置文件内容解析到全局变量 Conf 中。
+	// 将读取到的配置文件内容解析(反序列化)到全局变量 Conf 中。
 	err = v.Unmarshal(&Conf)
 	if err != nil {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
