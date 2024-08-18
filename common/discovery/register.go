@@ -156,8 +156,14 @@ func (r *Register) watcher() {
 			}
 			logs.Info("close etcd client")
 			return
-		case <-r.keepAliveCh:
-			// 收到心跳响应，如果响应为空，重新注册服务
+		case res := <-r.keepAliveCh:
+			// 收到心跳响应，如果响应为空(etcd断开重连)，重新注册服务
+			if res == nil {
+				if err := r.register(); err != nil {
+					logs.Error("keepAliveCh register err:", err)
+				}
+				logs.Info("重新续约成功")
+			}
 		case <-ticker.C:
 			// 定时检查心跳通道是否为空，如果为空，重新注册服务
 			if r.keepAliveCh == nil {

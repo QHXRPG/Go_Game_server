@@ -12,7 +12,7 @@ import (
 	"path"
 )
 
-// 全局配置变量
+// Conf 全局配置变量
 var Conf *Config
 
 // 配置文件名称常量

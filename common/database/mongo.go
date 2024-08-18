@@ -22,10 +22,6 @@ func NewMongo() *MongoManger {
 
 	// 加载配置文件所提供的Mongodb的URL
 	clientOptions := options.Client().ApplyURI(config.Conf.Database.MongoConf.Url)
-	//clientOptions.SetAuth(options.Credential{
-	//	Username: config.Conf.Database.MongoConf.UserName,
-	//	Password: config.Conf.Database.MongoConf.Password,
-	//})
 	clientOptions.SetMinPoolSize(uint64(config.Conf.Database.MongoConf.MinPoolSize))
 	clientOptions.SetMinPoolSize(uint64(config.Conf.Database.MongoConf.MinPoolSize))
 

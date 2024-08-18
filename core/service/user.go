@@ -1,6 +1,7 @@
 package service
 
 import (
+	"common/biz"
 	"common/logs"
 	"common/utils"
 	"connector/models/request"
@@ -10,6 +11,7 @@ import (
 	"core/repo"
 	"fmt"
 	"framework/game"
+	"framework/msError"
 	hall "hall/models/request"
 	"time"
 )
@@ -18,11 +20,11 @@ type UserService struct {
 	userDao *dao.UserDao
 }
 
-func (s UserService) FindUserByUid(ctx context.Context, uid string, info request.UserInfo) (*entity.User, error) {
+func (s UserService) FindAndSaveUserByUid(ctx context.Context, uid string, info request.UserInfo) (*entity.User, error) {
 	// 通过 uid 查询mongo中的用户
 	user, err := s.userDao.FindUserByUid(ctx, uid)
 	if err != nil {
-		logs.Error("FindUserByUid err: %v", err)
+		logs.Error("FindAndSaveUserByUid err: %v", err)
 		return nil, err
 	}
 	if user == nil {
@@ -37,9 +39,19 @@ func (s UserService) FindUserByUid(ctx context.Context, uid string, info request
 		user.LastLoginTime = time.Now().UnixMilli()
 		err = s.userDao.Insert(context.TODO(), user)
 		if err != nil {
-			logs.Error("FindUserByUid Insert user err:", err)
+			logs.Error("FindAndSaveUserByUid Insert user err:", err)
 			return nil, err
 		}
+	}
+	return user, nil
+}
+
+func (s UserService) FindUserByUid(ctx context.Context, uid string) (*entity.User, *msError.Error) {
+	// 通过 uid 查询mongo中的用户
+	user, err := s.userDao.FindUserByUid(ctx, uid)
+	if err != nil {
+		logs.Error("FindUserByUid err: %v", err)
+		return nil, biz.SqlError
 	}
 	return user, nil
 }

@@ -25,15 +25,13 @@ var (
 
 // WsConnection 结构体管理 WebSocket 连接
 type WsConnection struct {
-	Cid     string
-	Conn    *websocket.Conn
-	manager *Manager
-
-	// 在不同的 goroutine 之间传递消息, 实现 goroutine 之间的通信和同步
-	ReadChan  chan *MsgPack
-	WriteChan chan []byte
-
-	Session *Session
+	Cid        string
+	Conn       *websocket.Conn
+	manager    *Manager
+	ReadChan   chan *MsgPack
+	WriteChan  chan []byte
+	Session    *Session
+	pingTicker *time.Ticker
 }
 
 // GetSession 获取会话
@@ -55,6 +53,9 @@ func (c WsConnection) Close() {
 			return
 		}
 	}
+	if c.pingTicker != nil {
+		c.pingTicker.Stop()
+	}
 }
 
 // Run 启动读写消息和心跳检测
@@ -68,25 +69,26 @@ func (c WsConnection) Run() {
 
 // WriteMessage 向客户端发送消息
 func (c WsConnection) WriteMessage() {
-	ticker := time.NewTicker(pingInterval)
+	c.pingTicker = time.NewTicker(pingInterval)
 	for {
 		select {
 		case message, ok := <-c.WriteChan:
 			if !ok {
 				if err := c.Conn.WriteMessage(websocket.CloseMessage, nil); err != nil {
-					logs.Error("write closeMessage error:", err)
+					logs.Error("connection closed, %v", err)
 				}
 				return
 			}
 			if err := c.Conn.WriteMessage(websocket.BinaryMessage, message); err != nil {
-				logs.Error("client[%s] write message error:%v", c.Cid, err)
+				logs.Error("client[%s] write message err :%v", c.Cid, err)
 			}
-		case <-ticker.C:
+		case <-c.pingTicker.C:
 			if err := c.Conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
-				logs.Error("client[%s] write ping SetWriteDeadline error:%v", c.Cid, err)
+				logs.Error("client[%s] ping SetWriteDeadline err :%v", c.Cid, err)
 			}
 			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				logs.Error("client[%s] write ping error:%v", c.Cid, err)
+				logs.Error("client[%s] ping  err :%v", c.Cid, err)
+				c.Close()
 			}
 		}
 	}

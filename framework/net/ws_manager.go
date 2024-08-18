@@ -2,6 +2,7 @@ package net
 
 import (
 	"common/logs"
+	"common/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,6 +49,7 @@ type Manager struct {
 	ConnectorHandlers  LogicHandler
 	RemoteReadChan     chan []byte
 	RemoteClient       remote.Client
+	RemotePushChan     chan *remote.Msg
 }
 
 // HandlerFunc 定义处理函数类型
@@ -63,6 +65,7 @@ type EventHandler func(packet *protocol.Packet, c Connection) error
 func (m *Manager) Run(addr string) error {
 	go m.clientReadChanHandler()
 	go m.remoteReadChanHandler()
+	go m.RemotePushChanHandler()
 	http.HandleFunc("/", m.serveWS) // 将 HTTP 请求交给 m.serveWS 函数处理
 	// 设置不同的消息处理器
 	m.setupEventHandlers()
@@ -280,11 +283,34 @@ func (m *Manager) KickHandler(packet *protocol.Packet, c Connection) error {
 	return nil
 }
 
+// remoteReadChanHandler 用于接收通过nats订阅的消息
 func (m *Manager) remoteReadChanHandler() {
 	for {
 		select {
-		case msg := <-m.RemoteReadChan:
-			logs.Info("sub nats read chan:%v", string(msg))
+		case body, ok := <-m.RemoteReadChan:
+			if ok {
+				logs.Info("sub nats read chan:%v", string(body))
+				var msg remote.Msg
+				if err := json.Unmarshal(body, &msg); err != nil {
+					logs.Error("Unmarshal msg failed: ", err)
+					continue
+				}
+				if msg.Type == remote.SessionType {
+					// 需要特殊处理，Session类型是存储再connection中的session，并不推送
+					m.setSessionData(msg)
+					continue
+				}
+				if msg.Body != nil {
+					if msg.Body.Type == protocol.Response || msg.Body.Type == protocol.Request {
+						// 给客户端回消息，都是response
+						msg.Body.Type = protocol.Response
+						m.Response(&msg)
+					}
+					if msg.Body.Type == protocol.Push {
+						m.RemotePushChan <- &msg
+					}
+				}
+			}
 		}
 	}
 }
@@ -302,6 +328,61 @@ func (m *Manager) selectDst(serverType string) (string, error) {
 
 }
 
+func (m *Manager) Response(msg *remote.Msg) {
+	connection, ok := m.clients[msg.Cid]
+	if !ok {
+		logs.Info("%s client down，uid=%s", msg.Cid, msg.Uid)
+		return
+	}
+	buf, err := protocol.MessageEncode(msg.Body)
+	if err != nil {
+		logs.Error("Response MessageEncode err:%v", err)
+		return
+	}
+	res, err := protocol.Encode(protocol.Data, buf)
+	if err != nil {
+		logs.Error("Response Encode err:%v", err)
+		return
+	}
+	if msg.Body.Type == protocol.Push {
+		for _, v := range m.clients {
+			if utils.Contains(msg.PushUser, v.GetSession().Uid) {
+				logs.Info("Response Push User:%v", msg)
+				v.SendMessage(res)
+			}
+		}
+	} else {
+		logs.Info("Response Push User:%v", msg)
+		connection.SendMessage(res)
+	}
+
+}
+
+func (m *Manager) RemotePushChanHandler() {
+	for {
+		select {
+		case body, ok := <-m.RemotePushChan:
+			if ok {
+				logs.Info("nats push channel handler, body:%v", body)
+				if body.Body.Type == protocol.Push {
+					logs.Info("push ,body:%v", body)
+					m.Response(body)
+				}
+			}
+
+		}
+	}
+}
+
+func (m *Manager) setSessionData(msg remote.Msg) {
+	m.RLock()
+	defer m.RUnlock()
+	connection, ok := m.clients[msg.Cid]
+	if ok {
+		connection.GetSession().SetData(msg.Uid, msg.SessionData)
+	}
+}
+
 // NewManager 创建一个新的 Manager 实例
 func NewManager() *Manager {
 	return &Manager{
@@ -309,5 +390,6 @@ func NewManager() *Manager {
 		clients:        make(map[string]Connection),
 		handlers:       make(map[protocol.PackageType]EventHandler),
 		RemoteReadChan: make(chan []byte, 1024),
+		RemotePushChan: make(chan *remote.Msg, 1024),
 	}
 }

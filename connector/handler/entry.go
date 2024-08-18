@@ -39,7 +39,7 @@ func (h *EntryHandler) Entry(session *net.Session, body []byte) (any, error) {
 	}
 
 	// 根据uid在mongo中查询用户，如果用户不存在，生成一个用户
-	user, err := h.userService.FindUserByUid(context.TODO(), uid, req.UserInfo)
+	user, err := h.userService.FindAndSaveUserByUid(context.TODO(), uid, req.UserInfo)
 	if err != nil {
 		return common.Fail(biz.SqlError), nil
 	}

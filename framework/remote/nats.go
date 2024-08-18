@@ -44,9 +44,9 @@ func (c *NatsClient) Close() error {
 }
 
 func (c *NatsClient) sub() {
-	logs.Info("serverId:%v sub", c.serverId)
 	_, err := c.conn.Subscribe(c.serverId, func(msg *nats.Msg) {
 		// 收到其它nats client发送的消息
+		logs.Info("serverId:%v sub msg:%v", c.serverId, string(msg.Data))
 		c.readChan <- msg.Data
 	})
 	if err != nil {
